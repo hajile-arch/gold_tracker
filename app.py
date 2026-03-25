@@ -1,8 +1,7 @@
 from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
-import schedule
-import time
+import traceback
 import os
 
 
@@ -12,15 +11,20 @@ uob_url = "https://www.uob.com.my/wsm/stayinformed.do?path=gia"
 cimb_url = "https://www.cimb.com.my/en/personal/wealth-management/investments/investment-products/e-gold-investment-account-egia.html"
 may_url = "https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/gold_and_silver.page"
 
-headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0", "Accept-Language": "en-GB,en;q=0.9,en-US;q=0.8", "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7", "Connection": "keep-alive" }
-
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0",
+    "Accept-Language": "en-GB,en;q=0.9,en-US;q=0.8",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Connection": "keep-alive",
+    "Referer": "https://www.google.com/"
+}
 
 def fetch_prices():
     try:
         session = requests.Session()
 
-        uob_response = session.get(uob_url, timeout=5)
-        cimb_response = session.get(cimb_url, timeout=5)
+        uob_response = session.get(uob_url,  timeout=5)
+        cimb_response = session.get(cimb_url, headers=headers, timeout=5)
         may_response = session.get(may_url, headers=headers, timeout=10)
 
         soup_cimb = BeautifulSoup(cimb_response.text, "html.parser")
@@ -102,8 +106,10 @@ def fetch_prices():
         print("\n=====================================================\n")
         return gold_prices
     except Exception as e:
-        print("Error:", e)
-        return{} 
+        print("Scraping failed:", e)
+
+        traceback.print_exc()
+        return {}
         # By returning an empty dict when got error doesnt crash the API
 
 
@@ -127,8 +133,10 @@ def gold():
     return jsonify(data)
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+    data = fetch_prices()
+    print(data)
+    # port = int(os.environ.get("PORT", 10000))
+    # app.run(host="0.0.0.0", port=port)
     
 # ---------------- SCHEDULER ----------------
 # schedule.every(10).minutes.do(fetch_prices)
