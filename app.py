@@ -108,10 +108,6 @@ def fetch_prices():
 
 
 @app.route("/")
-def home():
-    return "Gold Price API is running!"
-
-@app.route("/gold")
 def gold():
     data=fetch_prices()
     valid = {k: v for k, v in data.items() if v["selling"] and v["buying"]}
