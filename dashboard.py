@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 
 st.title("Gold price from 3 different instituitions")
-API_URL = "http://127.0.0.1:5000/gold"
+API_URL = "http://127.0.0.1:10000"
 response = requests.get(API_URL)
 data = response.json()
 
