@@ -3,11 +3,13 @@ import requests
 from bs4 import BeautifulSoup
 import os
 
+
 app = Flask(__name__)
 
 uob_url = "https://www.uob.com.my/wsm/stayinformed.do?path=gia"
 cimb_url = "https://www.cimb.com.my/en/personal/wealth-management/investments/investment-products/e-gold-investment-account-egia.html"
 may_url = "https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/gold_and_silver.page"
+pbe_url = "https://www.pbebank.com/en/invest/gold-egold-investment-account/"
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0",
@@ -16,6 +18,7 @@ headers = {
     "Connection": "keep-alive",
     "Referer": "https://www.google.com/"
 }
+
 
 
 def safe_request(session, url):
@@ -33,7 +36,8 @@ def fetch_prices():
     gold_prices = {
         "CIMB": {"selling": None, "buying": None, "time": "N/A"},
         "UOB": {"selling": None, "buying": None, "time": "N/A"},
-        "Maybank": {"selling": None, "buying": None, "time": "N/A"}
+        "Maybank": {"selling": None, "buying": None, "time": "N/A"},
+        "Pbe":{"selling": None, "buying": None, "time": "N/A"}
     }
 
     # ---------------- CIMB ----------------
@@ -72,13 +76,22 @@ def fetch_prices():
         print("[ERROR] UOB parsing failed:", e)
 
     # ---------------- MAYBANK (UNRELIABLE ON CLOUD) ----------------
+    print("[DEBUG] Fetching Maybank...")
+
+    res = safe_request(session, may_url)
+
+    if res:
+        print("[DEBUG] Maybank status:", res.status_code)
+        print("[DEBUG] Maybank HTML length:", len(res.text))
+    else:
+        print("[DEBUG] Maybank request returned None")
     try:
         res = safe_request(session, may_url)
         if res:
             soup = BeautifulSoup(res.text, "html.parser")
 
             time_may = soup.find(string=lambda t: t and "Effective on" in t)
-
+            
             tables = soup.find_all("table")
             if tables:
                 td = tables[0].find_all("td")
@@ -91,6 +104,7 @@ def fetch_prices():
 
     except Exception as e:
         print("[ERROR] Maybank parsing failed:", e)
+        
 
     return gold_prices
 
