@@ -2,13 +2,15 @@ import streamlit as st
 import requests
 import time
 
-st.title("💰 Gold Prices from 4 Institutions")
+st.set_page_config(page_title="Gold Tracker", layout="wide")
+
+st.title("💰 Gold Price Dashboard")
+st.caption("Live prices from Malaysian banks")
 
 API_URL = "https://just-basic-gold-tracking.onrender.com"
+REFRESH_INTERVAL = 4 * 60 * 60  # 4 hours
 
-REFRESH_INTERVAL = 4 * 60 * 60  # 4 hours (in seconds)
-
-# ---------------- SESSION STATE ----------------
+# ---------------- SESSION ----------------
 if "data" not in st.session_state:
     st.session_state.data = None
 
@@ -16,84 +18,120 @@ if "last_fetch" not in st.session_state:
     st.session_state.last_fetch = 0
 
 # ---------------- REFRESH BUTTON ----------------
-if st.button("🔄 Refresh Now"):
-    st.session_state.last_fetch = 0  # force refresh
+colA, colB = st.columns([6,1])
+with colB:
+    if st.button("🔄"):
+        st.session_state.last_fetch = 0
 
-# ---------------- FETCH LOGIC ----------------
+# ---------------- FETCH ----------------
 current_time = time.time()
 
 if (
     st.session_state.data is None
     or current_time - st.session_state.last_fetch > REFRESH_INTERVAL
 ):
-    with st.spinner("Fetching live gold prices... (may take a while if server is sleeping)"):
+    with st.spinner("Fetching latest prices..."):
         try:
             response = requests.get(API_URL, timeout=60)
             response.raise_for_status()
             st.session_state.data = response.json()
             st.session_state.last_fetch = current_time
+        except Exception as e:
+            st.error(f"Error: {e}")
 
-        except requests.exceptions.Timeout:
-            st.error("Server took too long to respond. Try again.")
-        except requests.exceptions.RequestException as e:
-            st.error(f"API Error: {e}")
-
-# ---------------- DISPLAY DATA ----------------
 data = st.session_state.data
 
+# ---------------- STYLE ----------------
+st.markdown("""
+<style>
+.card {
+    padding: 20px;
+    border-radius: 15px;
+    background-color: #111827;
+    border: 1px solid #1f2937;
+    margin-bottom: 15px;
+}
+.price {
+    font-size: 28px;
+    font-weight: bold;
+}
+.label {
+    color: #9ca3af;
+    font-size: 14px;
+}
+.best {
+    color: #10b981;
+    font-weight: bold;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ---------------- DISPLAY ----------------
 if data:
     prices = data.get("prices", {})
     analysis = data.get("analysis", {})
 
     banks = list(prices.items())
 
-    # -------- GRID (2x2) --------
     for i in range(0, len(banks), 2):
         col1, col2 = st.columns(2)
 
         # LEFT CARD
         bank1, info1 = banks[i]
         with col1:
-            st.subheader(bank1)
-            st.metric("Selling", info1.get("selling", "N/A"))
-            st.metric("Buying", info1.get("buying", "N/A"))
-            st.caption(info1.get("time", "N/A"))
+            st.markdown(f"""
+            <div class="card">
+                <h3>{bank1}</h3>
+                <div class="label">Selling</div>
+                <div class="price">RM {info1.get("selling", "N/A")}</div>
+                <div class="label">Buying</div>
+                <div class="price">RM {info1.get("buying", "N/A")}</div>
+                <br>
+                <div class="label">{info1.get("time", "")}</div>
+            </div>
+            """, unsafe_allow_html=True)
 
             if isinstance(analysis, dict):
                 if analysis.get("best_buy") == bank1:
-                    st.success("💡 Best to BUY here")
+                    st.markdown('<div class="best">💡 Best to BUY</div>', unsafe_allow_html=True)
                 if analysis.get("best_sell") == bank1:
-                    st.success("💰 Best to SELL here")
+                    st.markdown('<div class="best">💰 Best to SELL</div>', unsafe_allow_html=True)
 
         # RIGHT CARD
         if i + 1 < len(banks):
             bank2, info2 = banks[i + 1]
             with col2:
-                st.subheader(bank2)
-                st.metric("Selling", info2.get("selling", "N/A"))
-                st.metric("Buying", info2.get("buying", "N/A"))
-                st.caption(info2.get("time", "N/A"))
+                st.markdown(f"""
+                <div class="card">
+                    <h3>{bank2}</h3>
+                    <div class="label">Selling</div>
+                    <div class="price">RM {info2.get("selling", "N/A")}</div>
+                    <div class="label">Buying</div>
+                    <div class="price">RM {info2.get("buying", "N/A")}</div>
+                    <br>
+                    <div class="label">{info2.get("time", "")}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
                 if isinstance(analysis, dict):
                     if analysis.get("best_buy") == bank2:
-                        st.success("💡 Best to BUY here")
+                        st.markdown('<div class="best">💡 Best to BUY</div>', unsafe_allow_html=True)
                     if analysis.get("best_sell") == bank2:
-                        st.success("💰 Best to SELL here")
+                        st.markdown('<div class="best">💰 Best to SELL</div>', unsafe_allow_html=True)
 
     st.divider()
 
-    # -------- ANALYSIS SUMMARY --------
+    # SUMMARY
     if isinstance(analysis, dict):
-        st.info(f"🏆 Best place to BUY: {analysis.get('best_buy')}")
-        st.info(f"🏆 Best place to SELL: {analysis.get('best_sell')}")
-    elif isinstance(analysis, str):
-        st.warning(analysis)
+        st.success(f"🏆 Best BUY: {analysis.get('best_buy')}")
+        st.success(f"🏆 Best SELL: {analysis.get('best_sell')}")
 
-    # -------- LAST UPDATED --------
-    last_updated_time = time.strftime(
-        "%Y-%m-%d %H:%M:%S", time.localtime(st.session_state.last_fetch)
+    # LAST REFRESH
+    last_updated = time.strftime(
+        "%Y-%m-%d %H:%M:%S",
+        time.localtime(st.session_state.last_fetch)
     )
-    st.caption(f"Last refreshed: {last_updated_time}")
+    st.caption(f"Last updated: {last_updated}")
 
 else:
-    st.warning("No data available yet.")
+    st.warning("No data available.")
