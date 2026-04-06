@@ -33,7 +33,7 @@ def safe_request(session, url):
 def get_maybank(session):
     try:
         encoded_url = urllib.parse.quote(may_url)
-        api_url = f"http://api.scrape.do/?token={SCRAPE_DO_TOKEN}&url={encoded_url}&geoCode=my"
+        api_url = f"http://api.scrape.do/?token={SCRAPE_DO_TOKEN}&url={encoded_url}&geoCode=my&super=true"
         
         res = session.get(api_url, timeout=30)
         print(f"[DEBUG] Maybank status: {res.status_code}")
