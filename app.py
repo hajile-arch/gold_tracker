@@ -22,7 +22,7 @@ headers = {
 }
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) 
-SCRAPER_API_KEY = os.environ.get("SCRAPER_API_KEY")
+SCRAPER_API_KEY = "0546a9c94f1646fa8c1f5eb0a374e9499afb9e38299"
 proxyModeUrl = "http://{}:@proxy.scrape.do:8080".format(SCRAPER_API_KEY)
 proxies = {
     "http": proxyModeUrl,
@@ -55,22 +55,6 @@ def safe_request(session, url):
         print(f"[ERROR] Request failed for {url}: {e}")
         return None
 
-def get_maybank(session):
-    try:
-        res = session.get(
-            may_url,
-            headers=headers,
-            proxies=proxies,
-            verify=False,
-            timeout=20
-        )
-        print("[DEBUG] Maybank status:", res.status_code)
-        print("[DEBUG] Maybank HTML length:", len(res.text))
-        print("[DEBUG] Maybank snippet:", res.text[:500])
-        return res
-    except Exception as e:
-        print(f"[ERROR] Maybank request failed: {e}")
-        return None
 
 def fetch_prices():
     session = requests.Session()
@@ -120,18 +104,22 @@ def fetch_prices():
 
     # ---------------- MAYBANK (UNRELIABLE ON CLOUD) ----------------
     try:
-        res = get_maybank(session)  # ✅ uses proxy
+        res = safe_request(session, may_url)
         if res:
             soup = BeautifulSoup(res.text, "html.parser")
+
             time_may = soup.find(string=lambda t: t and "Effective on" in t)
+
             tables = soup.find_all("table")
             if tables:
                 td = tables[0].find_all("td")
                 if len(td) >= 3:
                     gold_prices["Maybank"]["selling"] = float(td[1].text.strip())
                     gold_prices["Maybank"]["buying"] = float(td[2].text.strip())
+
             if time_may:
                 gold_prices["Maybank"]["time"] = str(time_may)
+
     except Exception as e:
         print("[ERROR] Maybank parsing failed:", e)
         
@@ -176,6 +164,7 @@ if __name__ == "__main__":
     response = requests.get(may_url, proxies=proxies, verify=False, timeout=20)
     print("[TEST] Status:", response.status_code)
     print("[TEST] Response:", response.text[:1000])
-    
+
+
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
