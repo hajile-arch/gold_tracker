@@ -48,13 +48,14 @@ def safe_request_proxy(url):
     try:
         api_key = os.environ.get("SCRAPER_API_KEY")
         print(f"[DEBUG] API key present: {bool(api_key)}")
-        print(f"[DEBUG] API key value: '{api_key}'")  # temp, remove after fix
+        print(f"[DEBUG] API key value: '{api_key}'")
         
         if not api_key:
             print("[ERROR] SCRAPER_API_KEY is not set")
             return None
         
         proxy_url = "http://{}:@proxy.scrape.do:8080".format(api_key)
+        proxies = {"http": proxy_url, "https": proxy_url}  # ← define it locally here
         print(f"[DEBUG] Proxy URL: {proxy_url}")
         
         res = requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=30)
