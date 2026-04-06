@@ -3,7 +3,8 @@ import requests
 from bs4 import BeautifulSoup
 import os
 import urllib3
-
+from dotenv import load_dotenv
+load_dotenv()
 app = Flask(__name__)
 
 
@@ -22,12 +23,12 @@ headers = {
 }
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) 
-SCRAPER_API_KEY = os.environ.get("SCRAPER_API_KEY")
-proxyModeUrl = "http://{}:@proxy.scrape.do:8080".format(SCRAPER_API_KEY)
-proxies = {
-    "http": proxyModeUrl,
-    "https": proxyModeUrl,
-}
+# SCRAPER_API_KEY = os.environ.get("SCRAPER_API_KEY")
+# proxyModeUrl = "http://{}:@proxy.scrape.do:8080".format(SCRAPER_API_KEY)
+# proxies = {
+#     "http": proxyModeUrl,
+#     "https": proxyModeUrl,
+# }
 
 
 def safe_request(session, url):
@@ -40,11 +41,18 @@ def safe_request(session, url):
 def safe_request_proxy(url):
     """For sites that block datacenter IPs (e.g. Maybank)"""
     try:
+        api_key = os.environ.get("SCRAPER_API_KEY")  # ← read at call time
+        if not api_key:
+            print("[ERROR] SCRAPER_API_KEY is not set")
+            return None
+        
+        proxy_url = "http://{}:@proxy.scrape.do:8080".format(api_key)
+        proxies = {"http": proxy_url, "https": proxy_url}
+        
         return requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=30)
     except Exception as e:
         print(f"[ERROR] Proxy request failed for {url}: {e}")
         return None
-
 
 def fetch_prices():
     session = requests.Session()
