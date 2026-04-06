@@ -2,11 +2,11 @@ from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
 import os
-import urllib.parse
-
-SCRAPE_DO_TOKEN = os.environ.get("SCRAPE_DO_TOKEN")
+import urllib3
 
 app = Flask(__name__)
+
+
 
 uob_url = "https://www.uob.com.my/wsm/stayinformed.do?path=gia"
 cimb_url = "https://www.cimb.com.my/en/personal/wealth-management/investments/investment-products/e-gold-investment-account-egia.html"
@@ -21,7 +21,32 @@ headers = {
     "Referer": "https://www.google.com/"
 }
 
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) 
+SCRAPER_API_KEY = os.environ.get("SCRAPER_API_KEY")
+proxyModeUrl = "http://{}:@proxy.scrape.do:8080".format(SCRAPER_API_KEY)
+proxies = {
+    "http": proxyModeUrl,
+    "https": proxyModeUrl,
+}
+response = requests.request("GET", may_url, proxies=proxies, verify=False)
+print(response.text)
 
+def get_maybank(session):
+    try:
+        res = session.get(
+            may_url,
+            headers=headers,
+            proxies=proxies,   # <-- use the proxy
+            verify=False,
+            timeout=20
+        )
+        print("[DEBUG] Maybank status:", res.status_code)
+        print("[DEBUG] Maybank HTML length:", len(res.text))
+        print("[DEBUG] Maybank snippet:", res.text[:500])  # see what came back
+        return res
+    except Exception as e:
+        print(f"[ERROR] Maybank request failed: {e}")
+        return None
 
 def safe_request(session, url):
     try:
@@ -32,14 +57,19 @@ def safe_request(session, url):
 
 def get_maybank(session):
     try:
-        encoded_url = urllib.parse.quote(may_url)
-        api_url = f"http://api.scrape.do/?token={SCRAPE_DO_TOKEN}&url={encoded_url}&geoCode=my&super=true&render=true"
-        
-        res = session.get(api_url, timeout=30)
-        print(f"[DEBUG] Maybank status: {res.status_code}")
+        res = session.get(
+            may_url,
+            headers=headers,
+            proxies=proxies,
+            verify=False,
+            timeout=20
+        )
+        print("[DEBUG] Maybank status:", res.status_code)
+        print("[DEBUG] Maybank HTML length:", len(res.text))
+        print("[DEBUG] Maybank snippet:", res.text[:500])
         return res
     except Exception as e:
-        print(f"[ERROR] Maybank scrape.do failed: {e}")
+        print(f"[ERROR] Maybank request failed: {e}")
         return None
 
 def fetch_prices():
@@ -89,25 +119,19 @@ def fetch_prices():
         print("[ERROR] UOB parsing failed:", e)
 
     # ---------------- MAYBANK (UNRELIABLE ON CLOUD) ----------------
-    # ---------------- MAYBANK ----------------
     try:
-        res = get_maybank(session)
-        if res and res.status_code == 200:
+        res = get_maybank(session)  # ✅ uses proxy
+        if res:
             soup = BeautifulSoup(res.text, "html.parser")
-
             time_may = soup.find(string=lambda t: t and "Effective on" in t)
-
             tables = soup.find_all("table")
             if tables:
                 td = tables[0].find_all("td")
-                print(f"[DEBUG] Maybank tds: {[t.text.strip() for t in td[:6]]}")
                 if len(td) >= 3:
                     gold_prices["Maybank"]["selling"] = float(td[1].text.strip())
                     gold_prices["Maybank"]["buying"] = float(td[2].text.strip())
-
             if time_may:
                 gold_prices["Maybank"]["time"] = str(time_may)
-
     except Exception as e:
         print("[ERROR] Maybank parsing failed:", e)
         
@@ -144,38 +168,14 @@ def gold():
         "analysis": "No valid data available"
     })
 
-@app.route("/debug-maybank")
-def debug_maybank():
-    session = requests.Session()
-    
-    # Check token exists
-    token_present = bool(SCRAPE_DO_TOKEN)
-    
-    try:
-        encoded_url = urllib.parse.quote(may_url)
-        api_url = f"http://api.scrape.do/?token={SCRAPE_DO_TOKEN}&url={encoded_url}&geoCode=my&super=true"
-        
-        res = session.get(api_url, timeout=30)
-        
-        soup = BeautifulSoup(res.text, "html.parser")
-        tables = soup.find_all("table")
-        td = tables[0].find_all("td") if tables else []
-        
-        return jsonify({
-            "token_present": token_present,
-            "status_code": res.status_code,
-            "html_length": len(res.text),
-            "html_snippet": res.text[:500],
-            "table_count": len(tables),
-            "first_6_tds": [t.text.strip() for t in td[:6]]
-        })
-        
-    except Exception as e:
-        return jsonify({
-            "token_present": token_present,
-            "error": str(e)
-        })
 
 if __name__ == "__main__":
+
+    # Test Maybank proxy response before starting server
+    print("[TEST] Fetching Maybank via proxy...")
+    response = requests.get(may_url, proxies=proxies, verify=False, timeout=20)
+    print("[TEST] Status:", response.status_code)
+    print("[TEST] Response:", response.text[:1000])
+    
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
