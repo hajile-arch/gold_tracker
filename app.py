@@ -4,7 +4,13 @@ from bs4 import BeautifulSoup
 import os
 import urllib3
 from dotenv import load_dotenv
-load_dotenv()
+
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 app = Flask(__name__)
 
 
