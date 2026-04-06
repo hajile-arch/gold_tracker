@@ -144,6 +144,37 @@ def gold():
         "analysis": "No valid data available"
     })
 
+@app.route("/debug-maybank")
+def debug_maybank():
+    session = requests.Session()
+    
+    # Check token exists
+    token_present = bool(SCRAPE_DO_TOKEN)
+    
+    try:
+        encoded_url = urllib.parse.quote(may_url)
+        api_url = f"http://api.scrape.do/?token={SCRAPE_DO_TOKEN}&url={encoded_url}&geoCode=my&super=true"
+        
+        res = session.get(api_url, timeout=30)
+        
+        soup = BeautifulSoup(res.text, "html.parser")
+        tables = soup.find_all("table")
+        td = tables[0].find_all("td") if tables else []
+        
+        return jsonify({
+            "token_present": token_present,
+            "status_code": res.status_code,
+            "html_length": len(res.text),
+            "html_snippet": res.text[:500],
+            "table_count": len(tables),
+            "first_6_tds": [t.text.strip() for t in td[:6]]
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "token_present": token_present,
+            "error": str(e)
+        })
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
