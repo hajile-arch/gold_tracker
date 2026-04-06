@@ -22,7 +22,7 @@ headers = {
 }
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) 
-SCRAPER_API_KEY = os.environ.get("SCRAPER_API_KEY", "0546a9c94f1646fa8c1f5eb0a374e9499afb9e38299")
+SCRAPER_API_KEY = os.environ.get("SCRAPER_API_KEY")
 proxyModeUrl = "http://{}:@proxy.scrape.do:8080".format(SCRAPER_API_KEY)
 proxies = {
     "http": proxyModeUrl,
@@ -135,10 +135,10 @@ def gold():
 if __name__ == "__main__":
 
     # Test Maybank proxy response before starting server
-    print("[TEST] Fetching Maybank via proxy...")
-    response = requests.get(may_url, proxies=proxies, verify=False, timeout=20)
-    print("[TEST] Status:", response.status_code)
-    print("[TEST] Response:", response.text[:1000])
+    # print("[TEST] Fetching Maybank via proxy...")
+    # response = requests.get(may_url, proxies=proxies, verify=False, timeout=20)
+    # print("[TEST] Status:", response.status_code)
+    # print("[TEST] Response:", response.text[:1000])
 
 
     port = int(os.environ.get("PORT", 10000))
