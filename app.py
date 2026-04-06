@@ -2,7 +2,9 @@ from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
 import os
+import urllib.parse
 
+SCRAPE_DO_TOKEN = os.environ.get("SCRAPE_DO_TOKEN")
 
 app = Flask(__name__)
 
@@ -28,6 +30,17 @@ def safe_request(session, url):
         print(f"[ERROR] Request failed for {url}: {e}")
         return None
 
+def get_maybank(session):
+    try:
+        encoded_url = urllib.parse.quote(may_url)
+        api_url = f"http://api.scrape.do/?token={SCRAPE_DO_TOKEN}&url={encoded_url}&geoCode=my"
+        
+        res = session.get(api_url, timeout=30)
+        print(f"[DEBUG] Maybank status: {res.status_code}")
+        return res
+    except Exception as e:
+        print(f"[ERROR] Maybank scrape.do failed: {e}")
+        return None
 
 def fetch_prices():
     session = requests.Session()
@@ -76,25 +89,18 @@ def fetch_prices():
         print("[ERROR] UOB parsing failed:", e)
 
     # ---------------- MAYBANK (UNRELIABLE ON CLOUD) ----------------
-    print("[DEBUG] Fetching Maybank...")
-
-    res = safe_request(session, may_url)
-
-    if res:
-        print("[DEBUG] Maybank status:", res.status_code)
-        print("[DEBUG] Maybank HTML length:", len(res.text))
-    else:
-        print("[DEBUG] Maybank request returned None")
+    # ---------------- MAYBANK ----------------
     try:
-        res = safe_request(session, may_url)
-        if res:
+        res = get_maybank(session)
+        if res and res.status_code == 200:
             soup = BeautifulSoup(res.text, "html.parser")
 
             time_may = soup.find(string=lambda t: t and "Effective on" in t)
-            
+
             tables = soup.find_all("table")
             if tables:
                 td = tables[0].find_all("td")
+                print(f"[DEBUG] Maybank tds: {[t.text.strip() for t in td[:6]]}")
                 if len(td) >= 3:
                     gold_prices["Maybank"]["selling"] = float(td[1].text.strip())
                     gold_prices["Maybank"]["buying"] = float(td[2].text.strip())
