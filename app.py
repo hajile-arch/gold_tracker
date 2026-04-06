@@ -22,37 +22,27 @@ headers = {
 }
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning) 
-SCRAPER_API_KEY = "0546a9c94f1646fa8c1f5eb0a374e9499afb9e38299"
+SCRAPER_API_KEY = os.environ.get("SCRAPER_API_KEY", "0546a9c94f1646fa8c1f5eb0a374e9499afb9e38299")
 proxyModeUrl = "http://{}:@proxy.scrape.do:8080".format(SCRAPER_API_KEY)
 proxies = {
     "http": proxyModeUrl,
     "https": proxyModeUrl,
 }
-response = requests.request("GET", may_url, proxies=proxies, verify=False)
-print(response.text)
 
-def get_maybank(session):
-    try:
-        res = session.get(
-            may_url,
-            headers=headers,
-            proxies=proxies,   # <-- use the proxy
-            verify=False,
-            timeout=20
-        )
-        print("[DEBUG] Maybank status:", res.status_code)
-        print("[DEBUG] Maybank HTML length:", len(res.text))
-        print("[DEBUG] Maybank snippet:", res.text[:500])  # see what came back
-        return res
-    except Exception as e:
-        print(f"[ERROR] Maybank request failed: {e}")
-        return None
 
 def safe_request(session, url):
     try:
         return session.get(url, headers=headers, timeout=8)
     except Exception as e:
         print(f"[ERROR] Request failed for {url}: {e}")
+        return None
+
+def safe_request_proxy(url):
+    """For sites that block datacenter IPs (e.g. Maybank)"""
+    try:
+        return requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=30)
+    except Exception as e:
+        print(f"[ERROR] Proxy request failed for {url}: {e}")
         return None
 
 
@@ -104,22 +94,19 @@ def fetch_prices():
 
     # ---------------- MAYBANK (UNRELIABLE ON CLOUD) ----------------
     try:
-        res = safe_request(session, may_url)
+        res = safe_request_proxy(may_url)  # ← proxy used here
         if res:
+            print("[DEBUG] Maybank status:", res.status_code)
             soup = BeautifulSoup(res.text, "html.parser")
-
             time_may = soup.find(string=lambda t: t and "Effective on" in t)
-
             tables = soup.find_all("table")
             if tables:
                 td = tables[0].find_all("td")
                 if len(td) >= 3:
                     gold_prices["Maybank"]["selling"] = float(td[1].text.strip())
                     gold_prices["Maybank"]["buying"] = float(td[2].text.strip())
-
             if time_may:
                 gold_prices["Maybank"]["time"] = str(time_may)
-
     except Exception as e:
         print("[ERROR] Maybank parsing failed:", e)
         
@@ -130,18 +117,11 @@ def fetch_prices():
 @app.route("/")
 def gold():
     data = fetch_prices()
+    valid = {k: v for k, v in data.items() if v["selling"] is not None and v["buying"] is not None}
 
-    # ---------------- FILTER VALID DATA ----------------
-    valid = {
-        k: v for k, v in data.items()
-        if v["selling"] is not None and v["buying"] is not None
-    }
-
-    # ---------------- ANALYSIS ----------------
     if valid:
         best_buy = min(valid.items(), key=lambda x: x[1]["selling"])
         best_sell = max(valid.items(), key=lambda x: x[1]["buying"])
-
         return jsonify({
             "prices": data,
             "analysis": {
@@ -150,12 +130,7 @@ def gold():
             }
         })
 
-    # fallback if everything fails
-    return jsonify({
-        "prices": data,
-        "analysis": "No valid data available"
-    })
-
+    return jsonify({"prices": data, "analysis": "No valid data available"})
 
 if __name__ == "__main__":
 
