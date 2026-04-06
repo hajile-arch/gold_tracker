@@ -45,25 +45,19 @@ def safe_request(session, url):
         return None
 
 def safe_request_proxy(url):
+    """For sites that block datacenter IPs (e.g. Maybank)"""
     try:
-        api_key = os.environ.get("SCRAPER_API_KEY")
-        print(f"[DEBUG] API key present: {bool(api_key)}")
-        print(f"[DEBUG] API key value: '{api_key}'")
-        
+        api_key = os.environ.get("SCRAPER_API_KEY")  # ← read at call time
         if not api_key:
             print("[ERROR] SCRAPER_API_KEY is not set")
             return None
         
         proxy_url = "http://{}:@proxy.scrape.do:8080".format(api_key)
-        proxies = {"http": proxy_url, "https": proxy_url}  # ← define it locally here
-        print(f"[DEBUG] Proxy URL: {proxy_url}")
+        proxies = {"http": proxy_url, "https": proxy_url}
         
-        res = requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=30)
-        print(f"[DEBUG] Maybank status: {res.status_code}")
-        print(f"[DEBUG] Maybank response snippet: {res.text[:500]}")
-        return res
+        return requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=30)
     except Exception as e:
-        print(f"[ERROR] Proxy request failed: {e}")
+        print(f"[ERROR] Proxy request failed for {url}: {e}")
         return None
 
 def fetch_prices():
