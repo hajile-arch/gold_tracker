@@ -1,9 +1,17 @@
+import time
+
 from flask import Flask, jsonify
 import requests
 from bs4 import BeautifulSoup
 import os
 import urllib3
 from dotenv import load_dotenv
+from threading import Lock
+from datetime import datetime, timedelta, timezone
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.chrome.options import Options
 
 try:
     from dotenv import load_dotenv
@@ -13,7 +21,35 @@ except ImportError:
 
 app = Flask(__name__)
 
+# --- GLOBAL CACHE VARIABLES ---
+price_cache = {
+    "data": None,
+    "last_fetched": 0
+}
+cache_lock = Lock()
 
+def get_malaysia_time():
+    return datetime.now(timezone.utc) + timedelta(hours=8)
+
+def should_fetch_new_prices():
+    current_time = time.time()
+    myt_now = get_malaysia_time()
+    
+    # 1. Weekend Check (0 = Mon, 5 = Sat, 6 = Sun)
+    if myt_now.weekday() >= 5:
+        print("[INFO] Weekend. No trading. Serving cache.")
+        return False
+        
+    # 2. Business Hours Check (Before 8 AM or after 6 PM)
+    if myt_now.hour < 8 or myt_now.hour >= 18:
+        print("[INFO] Market closed. Serving cache.")
+        return False
+        
+    # 3. Expiration Check (15 minutes = 900 seconds)
+    if price_cache["data"] is None or (current_time - price_cache["last_fetched"]) > 900:
+        return True
+        
+    return False
 
 uob_url = "https://www.uob.com.my/wsm/stayinformed.do?path=gia"
 cimb_url = "https://www.cimb.com.my/en/personal/wealth-management/investments/investment-products/e-gold-investment-account-egia.html"
@@ -35,6 +71,8 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 #     "http": proxyModeUrl,
 #     "https": proxyModeUrl,
 # }
+
+
 
 
 def safe_request(session, url):
@@ -123,14 +161,61 @@ def fetch_prices():
                 gold_prices["Maybank"]["time"] = str(time_may)
     except Exception as e:
         print("[ERROR] Maybank parsing failed:", e)
+    
+    # ---------------- PBe (Public Bank) via Selenium ----------------
+    try:
+        print("[INFO] Fetching PBe via Selenium...")
         
+        # 1. Setup Cloud-Safe Chrome Options
+        chrome_options = Options()
+        chrome_options.add_argument("--headless") # Run invisibly (Crucial for Render)
+        chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox") # Bypass OS security model (Crucial for Render)
+        chrome_options.add_argument("--disable-dev-shm-usage") # Overcome limited resource problems
+
+        # 2. Run your scraper
+        with webdriver.Chrome(options=chrome_options) as driver:
+            driver.get("https://www.pbebank.com/en/invest/gold-egold-investment-account/")
+            driver.implicitly_wait(10)
+            
+            # Grab the text exactly as you wrote it
+            selling_text = driver.find_element(By.XPATH,"//td[contains(text(), '1 gram')]/following-sibling::td[1]").get_attribute("textContent").strip()
+            buying_text = driver.find_element(By.XPATH,"//td[contains(text(), '1 gram')]/following-sibling::td[2]").get_attribute("textContent").strip()
+            
+            # 3. Convert to float and save to the dictionary
+            gold_prices["Pbe"]["selling"] = float(selling_text)
+            gold_prices["Pbe"]["buying"] = float(buying_text)
+            
+    except Exception as e:
+        print(f"[ERROR] PBe parsing failed: {e}")
 
     return gold_prices
 
+@app.route("/keepalive")
+def keepalive():
+    return "Server is awake!", 200
 
 @app.route("/")
 def gold():
-    data = fetch_prices()
+    with cache_lock: # Lock the door!
+        if should_fetch_new_prices():
+            print("[INFO] Fetching fresh prices...")
+            price_cache["data"] = fetch_prices()
+            price_cache["last_fetched"] = time.time()
+        else:
+            time_left = (900 - (time.time() - price_cache["last_fetched"])) / 60
+            print(f"[INFO] Serving from cache. Next check allowed in {time_left:.1f} minutes.")
+
+    data = price_cache["data"]
+
+    # Fallback safety net
+    if data is None:
+        with cache_lock:
+            if price_cache["data"] is None:
+                price_cache["data"] = fetch_prices()
+                price_cache["last_fetched"] = time.time()
+            data = price_cache["data"]
+
     valid = {k: v for k, v in data.items() if v["selling"] is not None and v["buying"] is not None}
 
     if valid:

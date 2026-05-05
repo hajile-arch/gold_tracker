@@ -1,7 +1,6 @@
 from selenium import webdriver
-import re
 from selenium.webdriver.common.by import By
-import time
+
 
 with webdriver.Chrome() as driver:
     driver.get("https://www.pbebank.com/en/invest/gold-egold-investment-account/")
