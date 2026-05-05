@@ -8,9 +8,12 @@ import urllib3
 from dotenv import load_dotenv
 from threading import Lock
 from datetime import datetime, timedelta, timezone
+import threading
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 
 try:
@@ -99,6 +102,7 @@ def safe_request_proxy(url):
         return None
 
 def fetch_prices():
+    print("[DEBUG] fetch_prices() called!")
     session = requests.Session()
 
     # ---------------- DEFAULT STRUCTURE ----------------
@@ -164,8 +168,6 @@ def fetch_prices():
     
     # ---------------- PBe (Public Bank) via Selenium ----------------
     try:
-        print("[INFO] Fetching PBe via Selenium...")
-        
         # 1. Setup Cloud-Safe Chrome Options
         chrome_options = Options()
         chrome_options.add_argument("--headless") # Run invisibly (Crucial for Render)
@@ -177,15 +179,18 @@ def fetch_prices():
         with webdriver.Chrome(options=chrome_options) as driver:
             driver.get("https://www.pbebank.com/en/invest/gold-egold-investment-account/")
             driver.implicitly_wait(10)
-            
+
             # Grab the text exactly as you wrote it
             selling_text = driver.find_element(By.XPATH,"//td[contains(text(), '1 gram')]/following-sibling::td[1]").get_attribute("textContent").strip()
             buying_text = driver.find_element(By.XPATH,"//td[contains(text(), '1 gram')]/following-sibling::td[2]").get_attribute("textContent").strip()
+            time_element = driver.find_element(By.XPATH, "//*[contains(text(), 'Gold Investment Account as at')]").get_attribute("textContent").strip()
+            print("[DEBUG] PBe time_element raw:", repr(time_element))  # ADD THIS
             
-            # 3. Convert to float and save to the dictionary
+
             gold_prices["Pbe"]["selling"] = float(selling_text)
             gold_prices["Pbe"]["buying"] = float(buying_text)
-            
+            gold_prices["Pbe"]["time"] = time_element
+            print("[DEBUG] PBe full result:", gold_prices["Pbe"])  # ADD THIS
     except Exception as e:
         print(f"[ERROR] PBe parsing failed: {e}")
 
@@ -212,6 +217,7 @@ def gold():
     if data is None:
         with cache_lock:
             if price_cache["data"] is None:
+                print("[INFO] Cache empty on first load, fetching once...")  # ADD THIS
                 price_cache["data"] = fetch_prices()
                 price_cache["last_fetched"] = time.time()
             data = price_cache["data"]
@@ -239,6 +245,6 @@ if __name__ == "__main__":
     # print("[TEST] Status:", response.status_code)
     # print("[TEST] Response:", response.text[:1000])
 
-
+    print("[INFO] Starting server...")
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
