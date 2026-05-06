@@ -204,7 +204,8 @@ def keepalive():
 def gold():
     with cache_lock: # Lock the door!
         if should_fetch_new_prices():
-            print("[INFO] Fetching fresh prices...")
+            print(f"[LOG] SCRAPE TRIGGERED AT {get_malaysia_time().strftime('%H:%M:%S')}!", flush=True)
+            print("[INFO] Fetching fresh prices...", flush=True)
             price_cache["data"] = fetch_prices()
             price_cache["last_fetched"] = time.time()
         else:
