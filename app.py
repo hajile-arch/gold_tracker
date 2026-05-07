@@ -219,33 +219,36 @@ def fetch_prices():
 def auto_collect():
     myt_now = get_malaysia_time()
     
-    # 1. Check if it is a weekday between 8:00 AM and 5:59 PM
     if myt_now.weekday() < 5 and 8 <= myt_now.hour < 18:
-        
         with cache_lock:
-            # 2. Only scrape if the 15-minute cooldown has passed
             if should_fetch_new_prices():
                 print(f"[LOG] Cron triggered auto-collect at {myt_now.strftime('%H:%M')}!")
-                new_prices = fetch_prices()
-                price_cache["data"] = new_prices
-                price_cache["last_fetched"] = time.time()
                 
-                # 3. Save the new data to our history list
-                current_time_str = myt_now.strftime("%H:%M") # Just storing HH:MM for a cleaner chart
-                price_cache["history"].append({
-                    "time": current_time_str,
-                    "prices": new_prices
-                })
+                # Run fetch in background thread so cronjob doesn't timeout
+                threading.Thread(target=run_fetch_and_cache, daemon=True).start()
                 
-                # 4. Memory Safety: Keep only the last 100 entries
-                if len(price_cache["history"]) > 100:
-                    price_cache["history"].pop(0)
-                    
-                return "Data collected and saved to history", 200
+                return "Scrape started in background", 200
             else:
                 return "Ignored (Cache still valid)", 200
     
     return "Ignored (Market Closed)", 200
+
+def run_fetch_and_cache():
+    myt_now = get_malaysia_time()
+    new_prices = fetch_prices()
+    current_time_str = myt_now.strftime("%H:%M")
+    
+    with cache_lock:
+        price_cache["data"] = new_prices
+        price_cache["last_fetched"] = time.time()
+        price_cache["history"].append({
+            "time": current_time_str,
+            "prices": new_prices
+        })
+        if len(price_cache["history"]) > 100:
+            price_cache["history"].pop(0)
+    
+    print(f"[LOG] Background fetch complete at {current_time_str}")
 
 # Make sure you also have the history route so Streamlit can read it!
 @app.route("/history")
