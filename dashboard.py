@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import time
+import pandas as pd
 
 st.set_page_config(page_title="Gold Tracker", layout="wide")
 
@@ -132,6 +133,52 @@ if data:
         time.localtime(st.session_state.last_fetch)
     )
     st.caption(f"Last updated: {last_updated}")
+
+    # ---------------- HISTORY CHART & DOWNLOAD ----------------
+    st.divider()
+    st.subheader("📈 Today's Price Trends")
+    
+    with st.spinner("Loading history..."):
+        try:
+            history_response = requests.get(f"{API_URL}/history", timeout=15)
+            
+            if history_response.status_code == 200:
+                history_data = history_response.json()
+                
+                if history_data and len(history_data) > 0:
+                    # Parse the JSON into a format Pandas loves
+                    chart_rows = []
+                    for entry in history_data:
+                        row = {"Time": entry.get("time", "Unknown")}
+                        for bank, details in entry.get("prices", {}).items():
+                            if details.get("selling"):
+                                row[f"{bank} (Sell)"] = details["selling"]
+                        chart_rows.append(row)
+                        
+                    df = pd.DataFrame(chart_rows)
+                    
+                    if not df.empty:
+                        # Set 'Time' as the X-axis
+                        df.set_index("Time", inplace=True) 
+                        
+                        # Render the chart
+                        st.line_chart(df)
+                        
+                        # Render the download button
+                        csv_data = df.to_csv().encode('utf-8')
+                        st.download_button(
+                            label="📥 Download Today's Data (CSV)",
+                            data=csv_data,
+                            file_name=f"gold_prices_{time.strftime('%Y-%m-%d')}.csv",
+                            mime="text/csv",
+                        )
+                else:
+                    st.info("Not enough data to draw a chart yet. The bot is collecting data in the background!")
+            else:
+                st.warning(f"Could not fetch history. Status Code: {history_response.status_code}")
+                
+        except requests.exceptions.RequestException as e:
+            st.error(f"Failed to connect to the history API: {e}")
 
 else:
     st.warning("No data available.")

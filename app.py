@@ -27,7 +27,8 @@ app = Flask(__name__)
 # --- GLOBAL CACHE VARIABLES ---
 price_cache = {
     "data": None,
-    "last_fetched": 0
+    "last_fetched": 0,
+    "history": [],
 }
 cache_lock = Lock()
 
@@ -195,6 +196,43 @@ def fetch_prices():
         print(f"[ERROR] PBe parsing failed: {e}")
 
     return gold_prices
+
+@app.route("/auto_collect")
+def auto_collect():
+    myt_now = get_malaysia_time()
+    
+    # 1. Check if it is a weekday between 8:00 AM and 5:59 PM
+    if myt_now.weekday() < 5 and 8 <= myt_now.hour < 18:
+        
+        with cache_lock:
+            # 2. Only scrape if the 15-minute cooldown has passed
+            if should_fetch_new_prices():
+                print(f"[LOG] Cron triggered auto-collect at {myt_now.strftime('%H:%M')}!")
+                new_prices = fetch_prices()
+                price_cache["data"] = new_prices
+                price_cache["last_fetched"] = time.time()
+                
+                # 3. Save the new data to our history list
+                current_time_str = myt_now.strftime("%H:%M") # Just storing HH:MM for a cleaner chart
+                price_cache["history"].append({
+                    "time": current_time_str,
+                    "prices": new_prices
+                })
+                
+                # 4. Memory Safety: Keep only the last 100 entries
+                if len(price_cache["history"]) > 100:
+                    price_cache["history"].pop(0)
+                    
+                return "Data collected and saved to history", 200
+            else:
+                return "Ignored (Cache still valid)", 200
+    
+    return "Ignored (Market Closed)", 200
+
+# Make sure you also have the history route so Streamlit can read it!
+@app.route("/history")
+def history():
+    return jsonify(price_cache["history"])
 
 @app.route("/keepalive")
 def keepalive():
