@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 from threading import Lock
 from datetime import datetime, timedelta, timezone
 import threading
-
+import re
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
@@ -31,6 +31,12 @@ price_cache = {
     "history": [],
 }
 cache_lock = Lock()
+
+
+def clean_time(t):
+    if not t:
+        return "N/A"
+    return re.sub(r'<[^>]+>', '', str(t)).strip()
 
 def get_malaysia_time():
     return datetime.now(timezone.utc) + timedelta(hours=8)
@@ -148,7 +154,7 @@ def fetch_prices():
                         gold_prices["CIMB"]["buying"] = float(cols[2])
 
             if time_cimb:
-                gold_prices["CIMB"]["time"] = str(time_cimb)
+                gold_prices["CIMB"]["time"] = time_cimb.strip().replace("Last Updated:", "").strip()
 
     except Exception as e:
         print("[ERROR] CIMB parsing failed:", e)
@@ -181,7 +187,8 @@ def fetch_prices():
                     gold_prices["Maybank"]["selling"] = float(td[1].text.strip())
                     gold_prices["Maybank"]["buying"] = float(td[2].text.strip())
             if time_may:
-                gold_prices["Maybank"]["time"] = str(time_may)
+                gold_prices["Maybank"]["time"] = clean_time(str(time_may))
+
     except Exception as e:
         print("[ERROR] Maybank parsing failed:", e)
     
@@ -208,7 +215,7 @@ def fetch_prices():
 
             gold_prices["Pbe"]["selling"] = float(selling_text)
             gold_prices["Pbe"]["buying"] = float(buying_text)
-            gold_prices["Pbe"]["time"] = time_element
+            gold_prices["Pbe"]["time"] = time_element.strip().replace("Last Updated:", "").strip()
             print("[DEBUG] PBe full result:", gold_prices["Pbe"])  # ADD THIS
     except Exception as e:
         print(f"[ERROR] PBe parsing failed: {e}")
