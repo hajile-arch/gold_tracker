@@ -153,7 +153,7 @@ hr { border-color: #1a1a1a; }
 """, unsafe_allow_html=True)
 
 API_URL = "https://just-basic-gold-tracking.onrender.com"
-REFRESH_INTERVAL = 4 * 60 * 60
+REFRESH_INTERVAL = 15 * 60
 def clean_time(t):
     if not t or t == "N/A":
         return ""
