@@ -278,7 +278,7 @@ if data:
     if st.session_state.history is None:
         with st.spinner("Loading history..."):
             try:
-                hr = requests.get(f"{API_URL}/history", timeout=15)
+                hr = requests.get(f"{API_URL}/history/all", timeout=15)
                 if hr.status_code == 200:
                     st.session_state.history = hr.json()
             except Exception as e:

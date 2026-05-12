@@ -15,7 +15,8 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
-
+from pymongo import MongoClient
+from datetime import datetime, timezone, timedelta
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -23,7 +24,10 @@ except ImportError:
     pass
 
 app = Flask(__name__)
-
+MONGODB_URI = os.environ.get("MONGODB_URI")
+mongo_client = MongoClient(MONGODB_URI)
+db = mongo_client["goldtracker"]
+collection = db["prices"]
 # --- GLOBAL CACHE VARIABLES ---
 price_cache = {
     "data": None,
@@ -255,12 +259,33 @@ def run_fetch_and_cache():
         if len(price_cache["history"]) > 100:
             price_cache["history"].pop(0)
     
+    # Save to MongoDB
+    try:
+        collection.insert_one({
+            "time": current_time_str,
+            "date": myt_now.strftime("%Y-%m-%d"),
+            "prices": new_prices,
+            "created_at": myt_now
+        })
+        print(f"[LOG] Saved to MongoDB at {current_time_str}")
+    except Exception as e:
+        print(f"[ERROR] MongoDB insert failed: {e}")
+    
     print(f"[LOG] Background fetch complete at {current_time_str}")
 
 # Make sure you also have the history route so Streamlit can read it!
 @app.route("/history")
 def history():
     return jsonify(price_cache["history"])
+
+@app.route("/history/all")
+def history_all():
+    try:
+        today = get_malaysia_time().strftime("%Y-%m-%d")
+        records = list(collection.find({"date": today}, {"_id": 0}).sort("created_at", 1))
+        return jsonify(records)
+    except Exception as e:
+        return jsonify([])
 
 @app.route("/keepalive")
 def keepalive():
