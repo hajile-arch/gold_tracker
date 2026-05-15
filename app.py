@@ -293,12 +293,26 @@ def keepalive():
 
 @app.route("/")
 def gold():
-    with cache_lock: # Lock the door!
+    with cache_lock:
         if should_fetch_new_prices():
             print(f"[LOG] SCRAPE TRIGGERED AT {get_malaysia_time().strftime('%H:%M:%S')}!", flush=True)
             print("[INFO] Fetching fresh prices...", flush=True)
             price_cache["data"] = fetch_prices()
             price_cache["last_fetched"] = time.time()
+
+            # Save to MongoDB
+            try:
+                myt_now = get_malaysia_time()
+                collection.insert_one({
+                    "time": myt_now.strftime("%H:%M"),
+                    "date": myt_now.strftime("%Y-%m-%d"),
+                    "prices": price_cache["data"],
+                    "created_at": myt_now
+                })
+                print(f"[LOG] Saved to MongoDB at {myt_now.strftime('%H:%M')}")
+            except Exception as e:
+                print(f"[ERROR] MongoDB insert failed: {e}")
+
         else:
             time_left = (900 - (time.time() - price_cache["last_fetched"])) / 60
             print(f"[INFO] Serving from cache. Next check allowed in {time_left:.1f} minutes.")
@@ -309,7 +323,7 @@ def gold():
     if data is None:
         with cache_lock:
             if price_cache["data"] is None:
-                print("[INFO] Cache empty on first load, fetching once...")  # ADD THIS
+                print("[INFO] Cache empty on first load, fetching once...")
                 price_cache["data"] = fetch_prices()
                 price_cache["last_fetched"] = time.time()
             data = price_cache["data"]
