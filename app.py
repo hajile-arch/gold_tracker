@@ -178,21 +178,24 @@ def fetch_prices():
         print("[ERROR] UOB parsing failed:", e)
 
     # ---------------- MAYBANK (UNRELIABLE ON CLOUD) ----------------
+    # ---------------- MAYBANK ----------------
     try:
-        res = safe_request_proxy(may_url)  # ← proxy used here
+        res = safe_request_proxy(may_url)
         if res:
             print("[DEBUG] Maybank status:", res.status_code)
             soup = BeautifulSoup(res.text, "html.parser")
             time_may = soup.find(string=lambda t: t and "Effective on" in t)
             tables = soup.find_all("table")
+            print(f"[DEBUG] Maybank tables found: {len(tables)}")
             if tables:
                 td = tables[0].find_all("td")
+                print(f"[DEBUG] Maybank td count: {len(td)}")
+                print(f"[DEBUG] Maybank td values: {[t.text.strip() for t in td[:5]]}")
                 if len(td) >= 3:
                     gold_prices["Maybank"]["selling"] = float(td[1].text.strip())
                     gold_prices["Maybank"]["buying"] = float(td[2].text.strip())
             if time_may:
                 gold_prices["Maybank"]["time"] = clean_time(str(time_may))
-
     except Exception as e:
         print("[ERROR] Maybank parsing failed:", e)
     
