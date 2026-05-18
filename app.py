@@ -97,7 +97,6 @@ def safe_request(session, url):
         return None
 
 def safe_request_proxy(url, max_retries=3):
-    """For sites that block datacenter IPs (e.g. Maybank), with built-in retries."""
     api_key = os.environ.get("SCRAPER_API_KEY")
     if not api_key:
         print("[ERROR] SCRAPER_API_KEY is not set")
@@ -109,12 +108,17 @@ def safe_request_proxy(url, max_retries=3):
     for attempt in range(max_retries):
         try:
             print(f"[DEBUG] Fetching Maybank (Attempt {attempt + 1}/{max_retries})...")
-            
-            # We increased the timeout slightly to 40 seconds
             response = requests.get(url, headers=headers, proxies=proxies, verify=False, timeout=40)
             
             if response.status_code == 200:
-                return response
+                # Validate the response actually has a table
+                soup = BeautifulSoup(response.text, "html.parser")
+                tables = soup.find_all("table")
+                if len(tables) > 0:
+                    print(f"[DEBUG] Maybank valid response with {len(tables)} tables")
+                    return response
+                else:
+                    print(f"[WARNING] Maybank returned 200 but no tables found, retrying...")
             else:
                 print(f"[WARNING] Maybank returned status {response.status_code}")
                 
@@ -123,7 +127,6 @@ def safe_request_proxy(url, max_retries=3):
         except Exception as e:
             print(f"[ERROR] Maybank attempt {attempt + 1} failed: {e}")
             
-        # If it failed and we still have retries left, wait 2 seconds before trying again
         if attempt < max_retries - 1:
             time.sleep(2)
             
