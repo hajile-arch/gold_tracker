@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 
 from api_clients import fetch_prices, fetch_history, REFRESH_INTERVAL
 from components import render_card, render_summary, render_chart
+from styles import STYLES_LIGHT, STYLES_DARK
 
 st.set_page_config(page_title="Gold Tracker MY", layout="wide", page_icon="🥇")
 
