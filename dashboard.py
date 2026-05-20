@@ -2,7 +2,6 @@ import streamlit as st
 import time
 from datetime import datetime, timezone, timedelta
 
-from styles import STYLES_DARK, STYLES_LIGHT
 from api_clients import fetch_prices, fetch_history, REFRESH_INTERVAL
 from components import render_card, render_summary, render_chart
 
