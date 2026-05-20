@@ -1,7 +1,6 @@
 import time
 from threading import Lock
 from datetime import datetime, timedelta, timezone
-from config import CACHE_TTL
 
 price_cache = {
     "data": None,
@@ -10,6 +9,7 @@ price_cache = {
 }
 cache_lock = Lock()
 
+CACHE_TTL = 900  # 15 minutes in seconds
 
 def get_malaysia_time():
     return datetime.now(timezone.utc) + timedelta(hours=8)
