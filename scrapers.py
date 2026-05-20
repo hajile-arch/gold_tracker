@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from config import UOB_URL, CIMB_URL, MAY_URL, PBE_URL, HEADERS
+from config import UOB_URL, CIMB_URL, MAY_URL, PBE_URL, RHB_URL,HEADERS
 
 
 def clean_time(t):
@@ -149,6 +149,25 @@ def scrape_pbe():
         print(f"[ERROR] PBe parsing failed: {e}")
     return result
 
+def scrape_rhb(session):
+    result = {"selling": None, "buying": None, "time": "N/A"}
+    try:
+        res = safe_request(session, RHB_URL)
+        if res:
+            soup = BeautifulSoup(res.text, "html.parser")
+            time_rhb = soup.find(string=lambda t: t and "RATES ARE QUOTED AGAINST MALAYSIAN RINGGIT UPDATED" in t)
+            for table in soup.find_all("table"):
+                for row in table.find_all("tr"):
+                    cols = [c.text.strip() for c in row.find_all(["td", "th"])]
+                    if len(cols) == 5 and cols[0] == "GLD":
+                        result["selling"] = float(cols[3])
+                        result["buying"] = float(cols[4])
+            if time_rhb:
+                result["time"] = time_rhb.strip().replace("RATES ARE QUOTED AGAINST MALAYSIAN RINGGIT UPDATED AT", "").strip()
+    except Exception as e:
+        print("[ERROR] RHB parsing failed:", e)
+    return result
+
 
 def fetch_prices():
     print("[DEBUG] fetch_prices() called!")
@@ -159,6 +178,10 @@ def fetch_prices():
         "UOB": scrape_uob(session),
         "Maybank": scrape_maybank(),
         "Pbe": scrape_pbe(),
+        "RHB": scrape_rhb(session)
     }
 
     return gold_prices
+if __name__ == "__main__":
+    session = requests.Session()
+    print(scrape_rhb(session))
