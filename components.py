@@ -82,7 +82,7 @@ def render_summary(best_buy, best_sell):
         """, unsafe_allow_html=True)
 
 
-def render_chart(history_data):
+def render_chart(history_data, light_mode=False):
     if not history_data:
         st.info("No history yet. The bot is collecting data in the background.")
         return
@@ -108,11 +108,11 @@ def render_chart(history_data):
     tab_sell, tab_buy, tab_all = st.tabs(["Selling Prices", "Buying Prices", "All"])
 
     with tab_sell:
-        st.plotly_chart(_make_chart(df, sell_cols), width='stretch')
+        st.plotly_chart(_make_chart(df, sell_cols, light_mode), use_container_width=True,theme=None)
     with tab_buy:
-        st.plotly_chart(_make_chart(df, buy_cols), width='stretch')
+        st.plotly_chart(_make_chart(df, buy_cols, light_mode), use_container_width=True,theme=None)
     with tab_all:
-        st.plotly_chart(_make_chart(df, sell_cols + buy_cols), width='stretch')
+        st.plotly_chart(_make_chart(df, sell_cols + buy_cols, light_mode), use_container_width=True,theme=None)
 
     csv_data = df.to_csv().encode("utf-8")
     import time
@@ -124,7 +124,17 @@ def render_chart(history_data):
     )
 
 
-def _make_chart(df, cols_to_plot):
+def _make_chart(df, cols_to_plot, light_mode=False):
+    bg = "#f5f5f0" if light_mode else "#0a0a0a"
+    plot_bg = "#ffffff" if light_mode else "#0f0f0f"
+    
+    # This will now be accurately applied!
+    font_color = "#1a1a1a" if light_mode else "#e5e5e5" 
+    
+    grid_color = "#e0e0d8" if light_mode else "#1a1a1a"
+    legend_bg = "#ffffff" if light_mode else "#0a0a0a"
+    legend_border = "#e0e0d8" if light_mode else "#1e1e1e"
+    
     fig = go.Figure()
     all_vals = []
 
@@ -136,7 +146,7 @@ def _make_chart(df, cols_to_plot):
             continue
         all_vals.extend(series.tolist())
         bank_name = col.split(" ")[0]
-        color = BANK_COLORS.get(bank_name, "#888")
+        color = BANK_COLORS.get(bank_name, "#0a0a0a")
         line_dash = "dot" if "Buy" in col else "solid"
 
         fig.add_trace(go.Scatter(
@@ -154,14 +164,32 @@ def _make_chart(df, cols_to_plot):
     y_max = max(all_vals) + 1 if all_vals else 650
 
     fig.update_layout(
-        paper_bgcolor="#0a0a0a",
-        plot_bgcolor="#0f0f0f",
-        font=dict(family="DM Mono, monospace", color="#888", size=11),
-        yaxis=dict(range=[y_min, y_max], gridcolor="#1a1a1a", tickprefix="RM ", tickformat=".2f", title=None),
-        xaxis=dict(gridcolor="#1a1a1a", title=None),
-        legend=dict(bgcolor="#111", bordercolor="#222", borderwidth=1, font=dict(size=11)),
+        paper_bgcolor=bg,
+        plot_bgcolor=plot_bg,
+        font=dict(family="DM Mono, monospace", color=font_color, size=11),
+        
+        # FIX 1: Add automargin to give the Y-axis numbers breathing room
+        yaxis=dict(
+            range=[y_min, y_max], 
+            gridcolor=grid_color, 
+            tickprefix="RM ", 
+            tickformat=".2f", 
+            title=None,
+            automargin=True
+        ),
+        
+        # FIX 2: Prevent X-axis time text from bunching up
+        xaxis=dict(
+            gridcolor=grid_color, 
+            title=None,
+            tickangle=-45,          # Slant the time labels so they don't hit each other
+            nticks=15,               # Cap the maximum number of visible time labels 
+            automargin=True
+        ),
+        
+        legend=dict(bgcolor=legend_bg, bordercolor=legend_border, borderwidth=1, font=dict(size=11)),
         hovermode="x unified",
         height=380,
-        margin=dict(l=10, r=10, t=20, b=10),
+        margin=dict(l=15, r=15, t=20, b=40), # Slightly increased bottom margin for the slanted text
     )
     return fig
