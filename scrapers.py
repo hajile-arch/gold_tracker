@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from config import UOB_URL, CIMB_URL, MAY_URL, PBE_URL, RHB_URL,HEADERS
+from config import UOB_URL, CIMB_URL, MAY_URL, PBE_URL, RHB_URL, HSBC_URL,HEADERS
 
 
 def clean_time(t):
@@ -168,6 +168,29 @@ def scrape_rhb(session):
         print("[ERROR] RHB parsing failed:", e)
     return result
 
+def scrape_hsbc(session):
+    result = {"selling": None, "buying": None, "time": "N/A"}
+    try:
+        res = safe_request(session, HSBC_URL)
+        if res:
+            soup = BeautifulSoup(res.text, "html.parser")
+            time_hsbc = soup.find(string=lambda t: t and "Exchange Rates updated as at" in t)
+            for table in soup.find_all("table"):
+                for row in table.find_all("tr"):
+                    cols = [c.text.strip() for c in row.find_all(["td", "th"])]
+                    if len(cols) == 4 and cols[0] == "GLD":
+                        original_sell = float(cols[2])
+                        original_buy = float(cols[3])
+                        result["selling"] = round(float(cols[2]) / 3.11035, 2)
+                        result["buying"] = round(float(cols[3]) / 3.11035, 2)
+                        result["original_selling"] = original_sell
+                        result["original_buying"] = original_buy
+                        result["unit"] = "0.10 troy oz"
+            if time_hsbc:
+                result["time"] = time_hsbc.strip().replace("Exchange Rates updated as at", "Last Updated").strip()
+    except Exception as e:
+        print("[ERROR] HSBC parsing failed:", e)
+    return result
 
 def fetch_prices():
     print("[DEBUG] fetch_prices() called!")
@@ -178,10 +201,11 @@ def fetch_prices():
         "UOB": scrape_uob(session),
         "Maybank": scrape_maybank(),
         "Pbe": scrape_pbe(),
-        "RHB": scrape_rhb(session)
+        "RHB": scrape_rhb(session),
+        "HSBC": scrape_hsbc(session)
     }
 
     return gold_prices
 if __name__ == "__main__":
     session = requests.Session()
-    print(scrape_rhb(session))
+    print(scrape_hsbc(session))

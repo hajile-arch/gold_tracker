@@ -5,6 +5,7 @@ CIMB_URL = "https://www.cimb.com.my/en/personal/wealth-management/investments/in
 MAY_URL = "https://www.maybank2u.com.my/maybank2u/malaysia/en/personal/rates/gold_and_silver.page"
 PBE_URL = "https://www.pbebank.com/en/invest/gold-egold-investment-account/"
 RHB_URL="https://www.rhbgroup.com/treasury-rates/precious-metal-exchange/index.html"
+HSBC_URL = "https://www.hsbc.com.my/investments/products/foreign-exchange/currency-rate/"
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/145.0.0.0 Safari/537.36 Edg/145.0.0.0",

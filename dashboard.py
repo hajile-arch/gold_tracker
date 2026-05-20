@@ -3,7 +3,6 @@ import requests
 import time
 import pandas as pd
 import plotly.graph_objects as go
-from datetime import datetime
 import re
 
 st.set_page_config(page_title="Gold Tracker MY", layout="wide", page_icon="🥇")
@@ -221,6 +220,12 @@ if data:
         buy_html  = f'<span>RM</span>{buying:.2f}'  if buying  else '<span class="na">—</span>'
 
         spread_html = ""
+        unit = info.get("unit")
+        orig_sell = info.get("original_selling")
+        orig_buy = info.get("original_buying")
+        unit_html = ""
+        if unit:
+            unit_html = f'<p style="font-size:11px;color:#555;margin-top:4px;">⚠️ Quoted per {unit} · Original: RM {orig_sell} / RM {orig_buy}</p>'
         if selling and buying:
             spread = selling - buying
             spread_html = f'<div class="spread">Spread: <b>RM {spread:.2f}</b></div>'
@@ -252,6 +257,7 @@ if data:
                     </div>
                 </div>
                 {spread_html}
+                {unit_html}
                 {badges}
             </div>
             """, unsafe_allow_html=True)
@@ -309,6 +315,8 @@ if data:
             "UOB":     "#4ade80",
             "Maybank": "#60a5fa",
             "Pbe":     "#f97316",
+            "RHB":     "#e11d48",
+            "HSBC":    "#8b0202",
         }
 
         tab_sell, tab_buy, tab_all = st.tabs(["Selling Prices", "Buying Prices", "All"])
