@@ -17,7 +17,13 @@ html, body, [class*="css"] {
     background-color: #0a0a0a;
     color: #e5e5e5;
 }
-
+.unit-note {
+    display: block;
+    font-size: 11px;
+    color: #555;
+    margin-top: 4px;
+}
+            
 h1, h2, h3 { font-family: 'Syne', sans-serif; }
 
 .stApp { background-color: #0a0a0a; }
@@ -224,8 +230,8 @@ if data:
         orig_sell = info.get("original_selling")
         orig_buy = info.get("original_buying")
         unit_html = ""
-        if unit:
-            unit_html = f'<p style="font-size:11px;color:#555;margin-top:4px;">⚠️ Quoted per {unit} · Original: RM {orig_sell} / RM {orig_buy}</p>'
+            # if unit:
+            #     unit_html = f'<span class="badge" style="cursor:help;border-color:#555;color:#555;" title="Quoted per {unit} · Original: RM {orig_sell} / RM {orig_buy}">ℹ️ TROY</span>'
         if selling and buying:
             spread = selling - buying
             spread_html = f'<div class="spread">Spread: <b>RM {spread:.2f}</b></div>'
@@ -233,6 +239,7 @@ if data:
         badges = ""
         if is_buy:  badges += '<span class="badge badge-buy">Best Buy</span>'
         if is_sell: badges += '<span class="badge badge-sell">Best Sell</span>'
+        
 
         time_display = clean_time(updated)
         time_html = f'<p style="font-size:11px;color:#3a3a3a;margin-top:10px;border-top:1px solid #1a1a1a;padding-top:8px;">{clean_time(updated)}</p>' if time_display else "" 
@@ -243,6 +250,7 @@ if data:
         print(f"[DEBUG] {bank} badges:", repr(badges))
         # st.markdown(time_html, unsafe_allow_html=True)
         with cols[idx % 2]:
+            
             st.markdown(f"""
             <div class="{card_class}">
                 <div class="bank-name">{bank}</div>
@@ -257,13 +265,36 @@ if data:
                     </div>
                 </div>
                 {spread_html}
-                {unit_html}
                 {badges}
             </div>
             """, unsafe_allow_html=True)
+          
             
-            if time_html:
-                st.caption(clean_time(updated))
+            if time_display:
+                if unit:
+                    st.caption(f"{clean_time(updated)} · ⚠️ Quoted per {unit} · Original: RM {orig_sell} / RM {orig_buy}")
+                else:
+                    st.caption(clean_time(updated))
+
+            # Card 2 - footer (time + unit note)
+            # footer_parts = []
+            # if unit:
+            #     footer_parts.append(f'Quoted per {unit} · Original: RM {orig_sell} / RM {orig_buy}')
+            # if time_display:
+            #     footer_parts.append(clean_time(updated))
+            
+            # for part in footer_parts:
+            #     st.caption(part)
+            
+            # if unit:
+            #     st.markdown(f"""
+            #     <div style="background:#111;border:1px solid #1e1e1e;border-top:none;border-left:3px solid #333;padding:8px 24px;margin-top:-12px;margin-bottom:12px;">
+            #         <span style="font-size:11px;color:#555;">⚠️ Quoted per {unit} · Original: RM {orig_sell} / RM {orig_buy}</span>
+            #     </div>
+            #     """, unsafe_allow_html=True)
+
+            # if time_html:
+            #     st.caption(clean_time(updated))
 
     # ---------------- SUMMARY ----------------
     if best_buy or best_sell:

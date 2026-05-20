@@ -75,7 +75,7 @@ def scrape_cimb(session):
                         result["selling"] = float(cols[1])
                         result["buying"] = float(cols[2])
             if time_cimb:
-                result["time"] = time_cimb.strip().replace("Last Updated:", "").strip()
+                result["time"] = time_cimb.strip().replace("Last Updated:", "Effetive On").strip()
     except Exception as e:
         print("[ERROR] CIMB parsing failed:", e)
     return result
@@ -91,7 +91,7 @@ def scrape_uob(session):
                 if cols[0] == "GOLD SAVINGS ACCOUNT":
                     result["selling"] = float(cols[2])
                     result["buying"] = float(cols[3])
-                    result["time"] = cols[5]
+                    result["time"] = "Effective On " + cols[5].strip()
     except Exception as e:
         print("[ERROR] UOB parsing failed:", e)
     return result
@@ -142,7 +142,7 @@ def scrape_pbe():
 
             result["selling"] = float(selling_text)
             result["buying"] = float(buying_text)
-            result["time"] = time_element.strip().replace("Last Updated:", "").strip()
+            result["time"] = time_element.strip().replace("Gold Investment Account as at", "Effective On").strip()
 
             print("[DEBUG] PBe full result:", result)
     except Exception as e:
@@ -163,7 +163,7 @@ def scrape_rhb(session):
                         result["selling"] = float(cols[3])
                         result["buying"] = float(cols[4])
             if time_rhb:
-                result["time"] = time_rhb.strip().replace("RATES ARE QUOTED AGAINST MALAYSIAN RINGGIT UPDATED AT", "").strip()
+                result["time"] = time_rhb.strip().replace("RATES ARE QUOTED AGAINST MALAYSIAN RINGGIT UPDATED AT", "Effective At").strip()
     except Exception as e:
         print("[ERROR] RHB parsing failed:", e)
     return result
@@ -187,7 +187,7 @@ def scrape_hsbc(session):
                         result["original_buying"] = original_buy
                         result["unit"] = "0.10 troy oz"
             if time_hsbc:
-                result["time"] = time_hsbc.strip().replace("Exchange Rates updated as at", "Last Updated").strip()
+                result["time"] = time_hsbc.strip().replace("Exchange Rates updated as at", "Effective On").strip()
     except Exception as e:
         print("[ERROR] HSBC parsing failed:", e)
     return result
@@ -206,6 +206,3 @@ def fetch_prices():
     }
 
     return gold_prices
-if __name__ == "__main__":
-    session = requests.Session()
-    print(scrape_hsbc(session))
