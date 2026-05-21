@@ -129,6 +129,19 @@ hr { border-color: var(--border-subtle); }
     color: #333;
     margin-bottom: 16px;
 }
+
+.stTabs [data-baseweb="tab"] {
+    color: #e5e5e5 !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    color: #e5e5e5 !important;
+}
+
+.stTabs [data-baseweb="tab-highlight"] {
+    background-color: #f5c842 !important;
+}
+
 </style>
 """
 
@@ -262,5 +275,28 @@ hr { border-color: var(--border-subtle); }
     color: #aaa;
     margin-bottom: 16px;
 }
+
+/* Fix tab text color in light mode */
+.stTabs [data-baseweb="tab-list"] {
+    background-color: var(--bg);
+}
+
+.stTabs [data-baseweb="tab"] {
+    color: #1a1a1a !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+    color: #1a1a1a !important;
+}
+
+.stTabs [data-baseweb="tab"]:hover {
+    color: #1a1a1a !important;
+}
+
+/* The active tab underline — make it gold to match your theme */
+.stTabs [data-baseweb="tab-highlight"] {
+    background-color: #b8960a !important;
+}
+
 </style>
 """
