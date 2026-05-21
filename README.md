@@ -61,4 +61,4 @@ Then open [http://localhost:8501](http://localhost:8501)
 
 ## Live Demo
 
-> Deployed on Streamlit Cloud — [add your link here]
+> Deployed on Streamlit Cloud — https://trackthegold.streamlit.app
