@@ -126,7 +126,7 @@ hr { border-color: var(--border-subtle); }
     font-size: 10px;
     letter-spacing: 3px;
     text-transform: uppercase;
-    color: #333;
+    color: #e5e5e5;
     margin-bottom: 16px;
 }
 
@@ -276,20 +276,20 @@ hr { border-color: var(--border-subtle); }
     margin-bottom: 16px;
 }
 
-/* Fix tab text color in light mode */
-.stTabs [data-baseweb="tab-list"] {
-    background-color: var(--bg);
-}
+/* Tab fix */
 
-.stTabs [data-baseweb="tab"] {
+.stTabs [data-baseweb="tab"] p,
+.stTabs [data-baseweb="tab"] span,
+.stTabs [data-baseweb="tab"] div,
+button[data-baseweb="tab"],
+button[data-baseweb="tab"] p,
+button[data-baseweb="tab"] span {
     color: #1a1a1a !important;
 }
 
-.stTabs [data-baseweb="tab"][aria-selected="true"] {
-    color: #1a1a1a !important;
-}
-
-.stTabs [data-baseweb="tab"]:hover {
+[role="tab"],
+[role="tab"][aria-selected="true"],
+[role="tab"]:hover {
     color: #1a1a1a !important;
 }
 
