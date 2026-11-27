@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pymongo import MongoClient
 from cache import get_malaysia_time
 
@@ -35,4 +36,14 @@ def get_history_today():
         return records
     except Exception as e:
         print(f"[ERROR] MongoDB history fetch failed: {e}")
+        return []
+
+
+def get_history_since(days):
+    """All snapshots from the last `days` days (date + prices only)."""
+    try:
+        since = get_malaysia_time() - timedelta(days=days)
+        return list(collection.find({"created_at": {"$gte": since}}, {"_id": 0, "date": 1, "prices": 1}))
+    except Exception as e:
+        print(f"[ERROR] MongoDB signal history fetch failed: {e}")
         return []

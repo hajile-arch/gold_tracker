@@ -1,22 +1,29 @@
 import time
 from threading import Lock
-from datetime import datetime, timedelta, timezone
+from datetime import datetime
+from zoneinfo import ZoneInfo
+
+MYT = ZoneInfo("Asia/Kuala_Lumpur")
 
 price_cache = {
     "data": None,
     "last_fetched": 0,
     "history": [],
+    "scraping": False,  # True while a background scrape is running
 }
 cache_lock = Lock()
 
 CACHE_TTL = 900  # 15 minutes in seconds
 
 def get_malaysia_time():
-    return datetime.now(timezone.utc) + timedelta(hours=8)
+    return datetime.now(MYT)
 
 
 def should_fetch_new_prices():
-    current_time = time.time()
+    # Nothing cached yet (e.g. right after a cold start): always fetch once
+    if price_cache["data"] is None:
+        return True
+
     myt_now = get_malaysia_time()
 
     # 1. Weekend Check (0 = Mon, 5 = Sat, 6 = Sun)
@@ -30,10 +37,7 @@ def should_fetch_new_prices():
         return False
 
     # 3. Expiration Check (15 minutes = 900 seconds)
-    if price_cache["data"] is None or (current_time - price_cache["last_fetched"]) > CACHE_TTL:
-        return True
-
-    return False
+    return (time.time() - price_cache["last_fetched"]) > CACHE_TTL
 
 
 def update_cache(new_prices):

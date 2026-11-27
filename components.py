@@ -1,7 +1,10 @@
 import re
+from datetime import date, timedelta
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+from api_clients import fetch_news
+from cache import get_malaysia_time
 
 BANK_COLORS = {
     "CIMB":    "#f5c842",
@@ -19,7 +22,7 @@ def clean_time(t):
     return re.sub(r'<[^>]+>', '', str(t)).strip()
 
 
-def render_card(col, bank, info, is_buy, is_sell):
+def render_card(col, bank, info, is_buy, is_sell, is_stale=False):
     selling = info.get("selling")
     buying  = info.get("buying")
     updated = info.get("time", "")
@@ -45,6 +48,8 @@ def render_card(col, bank, info, is_buy, is_sell):
     if is_sell: badges += '<span class="badge badge-sell">Best Sell</span>'
 
     time_display = clean_time(updated)
+    if is_stale:
+        time_display += " · ⚠️ Outdated quote, not used for Best Buy/Sell"
 
     with col:
         st.markdown(f"""
@@ -72,14 +77,78 @@ def render_card(col, bank, info, is_buy, is_sell):
                 st.caption(time_display)
 
 
-def render_summary(best_buy, best_sell):
-    if best_buy or best_sell:
-        st.markdown(f"""
-        <div class="summary-row">
-            <div class="summary-pill buy">💡 Best to BUY &nbsp;·&nbsp; {best_buy}</div>
-            <div class="summary-pill sell">💰 Best to SELL &nbsp;·&nbsp; {best_sell}</div>
-        </div>
-        """, unsafe_allow_html=True)
+VERDICT = {
+    "buy":  {"good": "Good time to buy", "neutral": "Normal price", "wait": "Pricey, maybe wait"},
+    "sell": {"good": "Good time to sell", "neutral": "Normal price", "wait": "Low, maybe hold"},
+}
+
+
+def _decision_card(action, bank, price, s):
+    s = s or {}
+    verdict = s.get("verdict")
+    label = "If you're buying" if action == "buy" else "If you're selling"
+    bank_line = f"Best bank <b>{bank}</b> · RM {price:.2f}" if bank and price else "No valid quotes right now"
+
+    if verdict in VERDICT[action]:
+        headline, cls = VERDICT[action][verdict], verdict
+        span = (s["high"] - s["low"]) or 1
+        pos = lambda v: min(max((v - s["low"]) / span * 100, 0), 100)
+        word = "were cheaper" if action == "buy" else "paid more"
+        detail = (
+            f'<div class="range"><div class="range-avg" style="left:{pos(s["avg"]):.0f}%"></div>'
+            f'<div class="range-now" style="left:{pos(s["now"]):.0f}%"></div></div>'
+            f'<div class="range-ends"><span>Low RM {s["low"]:.2f}</span><span>High RM {s["high"]:.2f}</span></div>'
+            f'<div class="decision-note">Market today RM {s["now"]:.2f} vs avg RM {s["avg"]:.2f} · '
+            f'{s["better_days_pct"]}% of the last {s["days"]} days {word}</div>'
+        )
+    elif verdict == "not_enough_data":
+        headline, cls = "Collecting history", "none"
+        detail = f'<div class="decision-note">Need a few more days of prices ({s.get("days", 0)} so far)</div>'
+    else:
+        headline, cls, detail = "Signal unavailable", "none", ""
+
+    return (f'<div class="decision {cls}"><div class="decision-label">{label}</div>'
+            f'<div class="decision-verdict">{headline}</div>'
+            f'<div class="decision-bank">{bank_line}</div>{detail}</div>')
+
+
+def render_decision(prices, best_buy, best_sell, signal):
+    signal = signal or {}
+    cards = (_decision_card("buy", best_buy, prices.get(best_buy, {}).get("selling"), signal.get("buy"))
+             + _decision_card("sell", best_sell, prices.get(best_sell, {}).get("buying"), signal.get("sell")))
+    st.markdown(f'<div class="decision-row">{cards}</div>', unsafe_allow_html=True)
+    st.caption("Dot = today's market price (median across banks), tick = average. Based on past prices only, not financial advice.")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def _news(after, before):
+    return fetch_news(after, before)
+
+
+def _news_list(after, before):
+    try:
+        items = _news(after, before)
+    except Exception as e:
+        st.caption(f"News unavailable: {e}")
+        return
+    if not items:
+        st.caption("No headlines found.")
+    for n in items:
+        title = n["title"].replace("[", "(").replace("]", ")").replace("$", r"\$")
+        st.markdown(f"- [{title}]({n['link']}) · {n['source']} · {n['date']}")
+
+
+def render_news(a):
+    today = get_malaysia_time().date()
+    st.markdown("**Latest headlines**")
+    _news_list((today - timedelta(days=2)).isoformat(), (today + timedelta(days=1)).isoformat())
+
+    for m in (a or {}).get("moves", []):
+        arrow, word = ("▲", "rose") if m["pct"] > 0 else ("▼", "fell")
+        day = date.fromisoformat(m["date"])
+        with st.expander(f"{arrow} {abs(m['pct']):.2f}% · gold {word} on {day:%a %d %b}"):
+            _news_list(m["prev"], (day + timedelta(days=1)).isoformat())
+    st.caption("Headlines from around each date, matched by time only. They may not be the actual cause.")
 
 
 def render_chart(history_data, light_mode=False):
@@ -108,33 +177,62 @@ def render_chart(history_data, light_mode=False):
     tab_sell, tab_buy, tab_all = st.tabs(["Selling Prices", "Buying Prices", "All"])
 
     with tab_sell:
-        st.plotly_chart(_make_chart(df, sell_cols, light_mode), use_container_width=True,theme=None)
+        st.plotly_chart(_make_chart(df, sell_cols, light_mode), width="stretch", theme=None)
     with tab_buy:
-        st.plotly_chart(_make_chart(df, buy_cols, light_mode), use_container_width=True,theme=None)
+        st.plotly_chart(_make_chart(df, buy_cols, light_mode), width="stretch", theme=None)
     with tab_all:
-        st.plotly_chart(_make_chart(df, sell_cols + buy_cols, light_mode), use_container_width=True,theme=None)
+        st.plotly_chart(_make_chart(df, sell_cols + buy_cols, light_mode), width="stretch", theme=None)
 
     csv_data = df.to_csv().encode("utf-8")
-    import time
     st.download_button(
         label="📥 Download CSV",
         data=csv_data,
-        file_name=f"gold_prices_{time.strftime('%Y-%m-%d')}.csv",
+        file_name=f"gold_prices_{get_malaysia_time().strftime('%Y-%m-%d')}.csv",
         mime="text/csv",
     )
 
 
+def render_analytics(a, light_mode=False):
+    if not a:
+        return  # fetch failed, error already shown
+    if not a.get("days"):
+        st.info("No long-term history yet.")
+        return
+
+    fc = a.get("forecast")
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric(f"{a['days']}-day change", f"{a['change_pct']:+.2f}%")
+    fmt = lambda d: date.fromisoformat(d).strftime("%d %b")
+    c2.metric(f"Cheapest day to buy · {fmt(a['best_buy_day']['date'])}", f"RM {a['best_buy_day']['price']:.2f}")
+    c3.metric(f"Best day to sell · {fmt(a['best_sell_day']['date'])}", f"RM {a['best_sell_day']['price']:.2f}")
+    if fc:
+        c4.metric(f"Trend · last {fc['lookback_days']} days", f"RM {fc['slope_per_day']:+.2f}/day")
+
+    df = pd.DataFrame(a["daily"]).set_index("date")
+    df["avg7"] = df["sell"].rolling(7, min_periods=1).mean()
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df.index, y=df["sell"], name="Selling (median)", line=dict(color="#f5c842", width=2)))
+    fig.add_trace(go.Scatter(x=df.index, y=df["buy"], name="Buying (median)", line=dict(color="#4ade80", width=2, dash="dot")))
+    fig.add_trace(go.Scatter(x=df.index, y=df["avg7"], name="Selling 7-day avg", line=dict(color="#60a5fa", width=1)))
+    vals = df["sell"].tolist() + df["buy"].tolist()
+    if fc:
+        pts = pd.DataFrame(fc["points"])
+        x_band = pts["date"].tolist() + pts["date"].tolist()[::-1]
+        fig.add_trace(go.Scatter(x=x_band, y=pts["high"].tolist() + pts["low"].tolist()[::-1], fill="toself", mode="lines",
+                                 fillcolor="rgba(245,200,66,0.15)", line=dict(width=0), name="Forecast range", hoverinfo="skip"))
+        fig.add_trace(go.Scatter(x=pts["date"], y=pts["price"], name="Forecast (selling)", line=dict(color="#f5c842", dash="dash")))
+        vals += pts["low"].tolist() + pts["high"].tolist()
+    st.plotly_chart(_style(fig, vals, light_mode), width="stretch", theme=None)
+
+    banks = pd.DataFrame(a["banks"]).T.sort_values("avg_spread_pct")
+    banks = banks.rename(columns={"avg_spread_pct": "Avg spread %", "cheapest_pct": "Cheapest to buy (% of time)",
+                                  "best_sell_pct": "Best to sell to (% of time)"})
+    st.dataframe(banks, width="stretch")
+    st.caption("Forecast is a straight-line trend through recent days, a rough guide only. "
+               "Gold can move far outside the range. Not financial advice.")
+
+
 def _make_chart(df, cols_to_plot, light_mode=False):
-    bg = "#f5f5f0" if light_mode else "#0a0a0a"
-    plot_bg = "#ffffff" if light_mode else "#0f0f0f"
-    
-    # This will now be accurately applied!
-    font_color = "#1a1a1a" if light_mode else "#e5e5e5" 
-    
-    grid_color = "#e0e0d8" if light_mode else "#1a1a1a"
-    legend_bg = "#ffffff" if light_mode else "#0a0a0a"
-    legend_border = "#e0e0d8" if light_mode else "#1e1e1e"
-    
     fig = go.Figure()
     all_vals = []
 
@@ -159,6 +257,17 @@ def _make_chart(df, cols_to_plot, light_mode=False):
             connectgaps=False,
             hovertemplate=f"<b>{col}</b><br>Time: %{{x}}<br>Price: RM %{{y:.2f}}<extra></extra>"
         ))
+
+    return _style(fig, all_vals, light_mode)
+
+
+def _style(fig, all_vals, light_mode=False):
+    bg = "#f5f5f0" if light_mode else "#0a0a0a"
+    plot_bg = "#ffffff" if light_mode else "#0f0f0f"
+    font_color = "#1a1a1a" if light_mode else "#e5e5e5"
+    grid_color = "#e0e0d8" if light_mode else "#1a1a1a"
+    legend_bg = "#ffffff" if light_mode else "#0a0a0a"
+    legend_border = "#e0e0d8" if light_mode else "#1e1e1e"
 
     y_min = min(all_vals) - 1 if all_vals else 550
     y_max = max(all_vals) + 1 if all_vals else 650

@@ -1,28 +1,23 @@
 import streamlit as st
 import time
-from datetime import datetime, timezone, timedelta
+from datetime import datetime
 
-from api_clients import fetch_prices, fetch_history, REFRESH_INTERVAL
-from components import render_card, render_summary, render_chart
-from styles import STYLES_LIGHT, STYLES_DARK
+from api_clients import fetch_prices, fetch_history, fetch_signal, fetch_analytics, REFRESH_INTERVAL
+from components import render_card, render_chart, render_decision, render_analytics, render_news
+from styles import STYLES_LIGHT, STYLES_DARK, STYLES_SHARED
+from cache import get_malaysia_time, MYT
 
 st.set_page_config(page_title="Gold Tracker MY", layout="wide", page_icon="🥇")
 
 # ---------------- SESSION ----------------
-for key, val in [("data", None), ("last_fetch", 0), ("history", None), ("light_mode", False)]:
+for key, val in [("data", None), ("last_fetch", 0), ("history", None), ("signal", None), ("analytics", None), ("light_mode", False)]:
     if key not in st.session_state:
         st.session_state[key] = val
 
 # ---------------- THEME ----------------
-if st.session_state.light_mode:
-    st.markdown(STYLES_LIGHT, unsafe_allow_html=True)
-else:
-    st.markdown(STYLES_DARK, unsafe_allow_html=True)
+st.markdown((STYLES_LIGHT if st.session_state.light_mode else STYLES_DARK) + STYLES_SHARED, unsafe_allow_html=True)
 
 # ---------------- MARKET STATUS ----------------
-def get_malaysia_time():
-    return datetime.now(timezone.utc) + timedelta(hours=8)
-
 def get_market_status():
     myt = get_malaysia_time()
     if myt.weekday() >= 5:
@@ -64,10 +59,12 @@ with col_refresh:
     if st.button("↺"):
         st.session_state.last_fetch = 0
         st.session_state.history = None
+        st.session_state.signal = None
+        st.session_state.analytics = None
 
 # ---------------- FETCH PRICES ----------------
 current_time = time.time()
-if st.session_state.data is None or current_time - st.session_state.last_fetch > REFRESH_INTERVAL:
+if st.session_state.data is None or current_time - st.session_state.last_fetch >= REFRESH_INTERVAL:
     with st.spinner("Fetching prices..."):
         try:
             st.session_state.data = fetch_prices()
@@ -83,6 +80,7 @@ if data:
     analysis = data.get("analysis", {})
     best_buy  = analysis.get("best_buy")  if isinstance(analysis, dict) else None
     best_sell = analysis.get("best_sell") if isinstance(analysis, dict) else None
+    stale     = analysis.get("stale", []) if isinstance(analysis, dict) else []
 
     banks = list(prices.items())
     cols  = st.columns(2)
@@ -93,12 +91,19 @@ if data:
             bank=bank,
             info=info,
             is_buy=bank == best_buy,
-            is_sell=bank == best_sell
+            is_sell=bank == best_sell,
+            is_stale=bank in stale
         )
 
-    render_summary(best_buy, best_sell)
+    # ---------------- BUY / SELL DECISION ----------------
+    if st.session_state.signal is None:
+        try:
+            st.session_state.signal = fetch_signal()
+        except Exception:
+            pass  # card shows "Signal unavailable"
+    render_decision(prices, best_buy, best_sell, st.session_state.signal)
 
-    last_updated = time.strftime("%d %b %Y, %H:%M:%S", time.localtime(st.session_state.last_fetch))
+    last_updated = datetime.fromtimestamp(st.session_state.last_fetch, MYT).strftime("%d %b %Y, %H:%M:%S")
     st.caption(f"Page last refreshed: {last_updated}")
 
     # ---------------- HISTORY CHART ----------------
@@ -114,5 +119,32 @@ if data:
 
     render_chart(st.session_state.history, light_mode=st.session_state.light_mode)
 
+    # ---------------- ANALYTICS ----------------
+    st.markdown("---")
+    st.markdown('<div class="section-label">Analytics & Forecast — Last 90 Days</div>', unsafe_allow_html=True)
+    if st.session_state.analytics is None:
+        with st.spinner("Crunching history..."):
+            try:
+                st.session_state.analytics = fetch_analytics()
+            except Exception as e:
+                st.error(f"Analytics fetch failed: {e}")
+    render_analytics(st.session_state.analytics, light_mode=st.session_state.light_mode)
+
+    # ---------------- NEWS ----------------
+    st.markdown("---")
+    st.markdown('<div class="section-label">What Moved Gold</div>', unsafe_allow_html=True)
+    render_news(st.session_state.analytics)
+
 else:
     st.warning("No data available. The server may be waking up — try refreshing in 30 seconds.")
+
+# ---------------- AUTO REFRESH ----------------
+# Reruns the whole page every REFRESH_INTERVAL, even if nobody touches the tab.
+@st.fragment(run_every=REFRESH_INTERVAL)
+def auto_refresh():
+    if time.time() - st.session_state.last_fetch >= REFRESH_INTERVAL:
+        st.session_state.history = None
+        st.session_state.signal = None
+        st.rerun()
+
+auto_refresh()
