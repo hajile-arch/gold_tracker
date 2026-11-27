@@ -324,5 +324,20 @@ STYLES_SHARED = """
 }
 .range-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
 .decision-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; }
+
+/* Streamlit widgets follow the browser theme, not our toggle: recolour them from the theme variables */
+header[data-testid="stHeader"] { background: var(--bg) !important; }
+[data-testid="stMarkdownContainer"] p, [data-testid="stMarkdownContainer"] li, [data-testid="stMarkdownContainer"] strong,
+[data-testid="stMetricLabel"], [data-testid="stMetricLabel"] p, [data-testid="stMetricValue"],
+[data-testid="stExpander"] summary, [data-testid="stExpander"] summary p, [data-testid="stExpander"] summary svg,
+[data-testid="stTable"] th, [data-testid="stTable"] td { color: var(--text) !important; fill: var(--text); }
+[data-testid="stExpander"] details, [data-testid="stExpander"] summary,
+[data-testid="stTable"] table, [data-testid="stTable"] th, [data-testid="stTable"] td {
+    background: var(--bg-card) !important;
+    border-color: var(--border) !important;
+}
+[data-testid="stTable"] th { color: var(--text-muted) !important; font-weight: 500; }
+button [data-testid="stMarkdownContainer"] p { color: inherit !important; }
+header[data-testid="stHeader"] * { color: var(--text) !important; }
 </style>
 """

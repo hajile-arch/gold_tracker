@@ -225,9 +225,11 @@ def render_analytics(a, light_mode=False):
     st.plotly_chart(_style(fig, vals, light_mode), width="stretch", theme=None)
 
     banks = pd.DataFrame(a["banks"]).T.sort_values("avg_spread_pct")
-    banks = banks.rename(columns={"avg_spread_pct": "Avg spread %", "cheapest_pct": "Cheapest to buy (% of time)",
-                                  "best_sell_pct": "Best to sell to (% of time)"})
-    st.dataframe(banks, width="stretch")
+    st.table(pd.DataFrame({
+        "Avg spread": banks["avg_spread_pct"].map("{:.2f}%".format),
+        "Cheapest to buy (% of time)": banks["cheapest_pct"].map("{:.0f}%".format),
+        "Best to sell to (% of time)": banks["best_sell_pct"].map("{:.0f}%".format),
+    }))
     st.caption("Forecast is a straight-line trend through recent days, a rough guide only. "
                "Gold can move far outside the range. Not financial advice.")
 
