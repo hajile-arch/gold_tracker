@@ -1,6 +1,7 @@
 import time
 import re
 import os
+from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 from selenium import webdriver
@@ -13,6 +14,30 @@ def clean_time(t):
     if not t:
         return "N/A"
     return re.sub(r'<[^>]+>', '', str(t)).strip()
+
+
+# Each bank formats its "effective" time differently. (format, has_time)
+QUOTE_TIME_FORMATS = [
+    ("%I:%M %p, %d %b %Y, %A", True),   # CIMB: 12:10 pm, 27 Nov 2026, Friday
+    ("%d/%m/%Y %H:%M", True),           # UOB: 27/11/2026 12:59
+    ("%d %b %Y %I:%M %p", True),        # Maybank: 27 Nov 2026 11:31 AM
+    ("%d %B %Y %I:%M %p", True),        # Pbe: 27 November 2026 01:00 PM
+    ("%I:%M:%S %p ON %d %b %Y", True),  # RHB: 01:00:01 PM ON 27 NOV 2026
+    ("%d-%m-%Y", False),                # HSBC: 27-11-2026 (date only)
+]
+
+
+def parse_quote_time(t):
+    """Return (naive MYT datetime, has_time) for a bank's time label, or None."""
+    m = re.search(r"\d.*", t or "")
+    if not m:
+        return None
+    for fmt, has_time in QUOTE_TIME_FORMATS:
+        try:
+            return datetime.strptime(m.group().strip(), fmt), has_time
+        except ValueError:
+            pass
+    return None
 
 
 def safe_request(session, url):
@@ -75,7 +100,7 @@ def scrape_cimb(session):
                         result["selling"] = float(cols[1])
                         result["buying"] = float(cols[2])
             if time_cimb:
-                result["time"] = time_cimb.strip().replace("Last Updated:", "Effetive On").strip()
+                result["time"] = time_cimb.strip().replace("Last Updated:", "Effective On").strip()
     except Exception as e:
         print("[ERROR] CIMB parsing failed:", e)
     return result
@@ -187,7 +212,7 @@ def scrape_hsbc(session):
                         result["original_buying"] = original_buy
                         result["unit"] = "0.10 troy oz"
             if time_hsbc:
-                result["time"] = time_hsbc.strip().replace("Exchange Rates updated as at", "Effective On").strip()
+                result["time"] = time_hsbc.strip().replace("Exchange Rates updated as at:", "Effective On").strip()
     except Exception as e:
         print("[ERROR] HSBC parsing failed:", e)
     return result

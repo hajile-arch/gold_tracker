@@ -12,6 +12,9 @@ STYLES_DARK = """
     --text-dim: #3a3a3a;
     --spread-color: #e05a5a;
     --na: #2a2a2a;
+    --good: #4ade80;
+    --neutral: #f5c842;
+    --wait: #f87171;
 }
 
 html, body, [class*="css"] {
@@ -116,10 +119,6 @@ h1, h2, h3 { font-family: 'Syne', sans-serif; }
 .badge-sell { background: #002a10; color: #4ade80; border: 1px solid #4ade80; }
 .spread { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 .spread b { color: var(--spread-color); }
-.summary-row { display: flex; gap: 16px; margin: 20px 0; }
-.summary-pill { padding: 10px 18px; border-radius: 4px; font-size: 13px; font-weight: 500; }
-.summary-pill.buy  { background: #1a1400; border: 1px solid #f5c842; color: #f5c842; }
-.summary-pill.sell { background: #001a0a; border: 1px solid #4ade80; color: #4ade80; }
 .na { color: var(--na) !important; }
 hr { border-color: var(--border-subtle); }
 .section-label {
@@ -159,6 +158,9 @@ STYLES_LIGHT = """
     --text-dim: #bbb;
     --spread-color: #e05a5a;
     --na: #ccc;
+    --good: #16a34a;
+    --neutral: #a16207;
+    --wait: #dc2626;
 }
 
 html, body, [class*="css"] {
@@ -262,10 +264,6 @@ h1, h2, h3 { font-family: 'Syne', sans-serif; }
 .badge-sell { background: #f0fff5; color: #16a34a; border: 1px solid #16a34a; }
 .spread { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
 .spread b { color: var(--spread-color); }
-.summary-row { display: flex; gap: 16px; margin: 20px 0; }
-.summary-pill { padding: 10px 18px; border-radius: 4px; font-size: 13px; font-weight: 500; }
-.summary-pill.buy  { background: #fef9e7; border: 1px solid #b8960a; color: #b8960a; }
-.summary-pill.sell { background: #f0fff5; border: 1px solid #16a34a; color: #16a34a; }
 .na { color: var(--na) !important; }
 hr { border-color: var(--border-subtle); }
 .section-label {
@@ -298,5 +296,33 @@ button[data-baseweb="tab"] span {
     background-color: #b8960a !important;
 }
 
+</style>
+"""
+# Layout shared by both themes; colours come from each theme's :root variables
+STYLES_SHARED = """
+<style>
+.decision-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; margin: 20px 0 8px; }
+.decision {
+    --v: var(--text-muted);
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--v);
+    border-radius: 4px;
+    padding: 18px 22px;
+}
+.decision.good    { --v: var(--good); }
+.decision.neutral { --v: var(--neutral); }
+.decision.wait    { --v: var(--wait); }
+.decision-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); }
+.decision-verdict { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 700; color: var(--v); margin: 4px 0 8px; }
+.decision-bank { font-size: 13px; color: var(--text); }
+.range { position: relative; height: 6px; background: var(--border); border-radius: 3px; margin: 20px 7px 6px; }
+.range-avg { position: absolute; top: -4px; width: 2px; height: 14px; background: var(--text-muted); transform: translateX(-50%); }
+.range-now {
+    position: absolute; top: -5px; width: 16px; height: 16px; border-radius: 50%;
+    background: var(--v); border: 3px solid var(--bg-card); transform: translateX(-50%);
+}
+.range-ends { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+.decision-note { font-size: 12px; color: var(--text-muted); margin-top: 10px; line-height: 1.5; }
 </style>
 """

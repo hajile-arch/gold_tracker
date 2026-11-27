@@ -18,3 +18,12 @@ HEADERS = {
 
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# A quote this many hours older than the newest quote is not used for Best Buy/Sell
+STALE_HOURS = 3
+# Buy/sell signal: compare today against this many past days, needs at least SIGNAL_MIN_DAYS of data
+SIGNAL_DAYS = 30
+SIGNAL_MIN_DAYS = 5
+# Analytics: ignore a bank quote this % away from the other banks (scraper glitch)
+OUTLIER_PCT = 10
+# Forecast: fit the trend over this many most recent days
+FORECAST_LOOKBACK = 30
